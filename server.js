@@ -47,8 +47,19 @@ app.use((req, res, next) => {
 // Static directory access for POD downloads
 app.use('/uploads', express.static('uploads'));
 
+// Health Check Route (for monitoring tools like cron-job.org)
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'IQSL Logistics Core Engine is healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 // 4. API Routes
 app.use('/api', apiRoutes);
+
 
 // serve compiled frontend assets (admin, driver, and website)
 const path = require('path');
