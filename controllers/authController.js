@@ -44,7 +44,7 @@ function setRefreshCookie(res, token, expiresAt) {
   res.cookie('refresh_token', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'Strict' : 'Lax',
+    sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
     path: '/api/auth',
     expires: expiresAt
   });
@@ -383,7 +383,7 @@ class AuthController {
       res.clearCookie('refresh_token', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'Strict' : 'Lax',
+        sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
         path: '/api/auth'
       });
 
