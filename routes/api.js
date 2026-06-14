@@ -96,11 +96,13 @@ const staffSchema = {
 };
 
 // ==========================================
-// PUBLIC ROUTES
+// PUBLIC ROUTES (no JWT required)
 // ==========================================
 router.post('/auth/otp/send', validate(sendOtpSchema), authController.sendOtp);
 router.post('/auth/otp/verify', validate(verifyOtpSchema), authController.verifyOtp);
 router.post('/auth/login', authController.login);
+router.post('/auth/refresh', authController.refresh);   // Reads HttpOnly cookie, issues new access token
+router.post('/auth/logout', authController.logout);     // Revokes refresh token, clears cookie
 
 // ==========================================
 // SECURE ROUTES (JWT required)

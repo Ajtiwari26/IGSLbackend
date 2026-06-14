@@ -287,6 +287,11 @@ async function ensureIndexes(database) {
   // 7. departments
   await database.collection('departments').createIndex({ name: 1, institution: 1 }, { unique: true });
 
+  // 8. refresh_tokens (TTL index for automatic cleanup + lookup index)
+  await database.collection('refresh_tokens').createIndex({ token: 1 }, { unique: true });
+  await database.collection('refresh_tokens').createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 });
+  await database.collection('refresh_tokens').createIndex({ user_id: 1 });
+
   logger.info('Database indexes configured successfully.');
 
   // Seed initial demo data for testing and local integration

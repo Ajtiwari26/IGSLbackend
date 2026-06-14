@@ -5,9 +5,21 @@ const { AppError } = require('./errorHandler');
 const { ERROR_CODES } = require('../utils/constants');
 const { ObjectId } = require('mongodb');
 
+// Centralized JWT secret — no hardcoded fallback
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('FATAL: JWT_SECRET environment variable is not set. Cannot start in production.');
+}
+const SECRET = JWT_SECRET || 'dev_only_secret_not_for_production';
+
 /**
  * Authentication Middleware using JWT (HMAC-SHA256)
- * Uses cache-first strategy to fetch user details to keep latency < 1ms on repeat requests.
+ * Uses cache-first strategy to fetch user details to keep latency <1ms on repeat requests.
+ * 
+ * SECURITY:
+ * - No hardcoded fallback secret in production
+ * - JWT payload is minimal (id, role, institution only)
+ * - User lookup is always verified against the database (with cache speedup)
  */
 async function authMiddleware(req, res, next) {
   try {
@@ -20,9 +32,12 @@ async function authMiddleware(req, res, next) {
     let decoded;
     
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret_for_dev_only');
+      decoded = jwt.verify(token, SECRET);
     } catch (err) {
-      throw new AppError(ERROR_CODES.AUTH_TOKEN_INVALID, 'Invalid or expired access token', 401);
+      if (err.name === 'TokenExpiredError') {
+        throw new AppError(ERROR_CODES.AUTH_TOKEN_INVALID, 'Access token has expired. Please refresh.', 401);
+      }
+      throw new AppError(ERROR_CODES.AUTH_TOKEN_INVALID, 'Invalid access token', 401);
     }
 
     const userId = decoded.id;

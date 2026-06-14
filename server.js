@@ -1,5 +1,8 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config(); // Load environment variables
 
 
@@ -26,7 +29,16 @@ app.use(cors({
   credentials: true
 }));
 
-// 2. Parsers & Core Middlewares
+// 2. Security Headers (Helmet)
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable CSP for API-only server
+  crossOriginEmbedderPolicy: false
+}));
+
+// 3. Cookie Parser (for HttpOnly refresh token cookies)
+app.use(cookieParser());
+
+// 4. Parsers & Core Middlewares
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
@@ -46,6 +58,19 @@ app.use((req, res, next) => {
 
 // Static directory access for POD downloads
 app.use('/uploads', express.static('uploads'));
+
+// Rate limiting on auth endpoints (prevents brute-force OTP guessing)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,  // 15 minutes window
+  max: 20,                     // 20 requests per window per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: { code: 'RATE_LIMIT', message: 'Too many authentication requests. Please try again later.' }
+  }
+});
+app.use('/api/auth', authLimiter);
 
 // Health Check Route (for monitoring tools like cron-job.org)
 app.get('/health', (req, res) => {

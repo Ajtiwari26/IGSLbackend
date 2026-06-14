@@ -270,12 +270,11 @@ class TripController {
         throw new AppError(ERROR_CODES.RESOURCE_NOT_FOUND, 'Trip not found.', 404);
       }
 
-      // Check access permission (Admin or assigned Broker/Manager)
-      if (req.user.role === ROLES.BROKER && req.user._id.toString() !== trip.created_by.toString()) {
-        const broker = await db.collection('brokers').findOne({ user_id: req.user._id, institution });
-        if (!broker || !trip.broker_id || !trip.broker_id.equals(broker._id)) {
-          // Allow if they are manager (created the trip or same institution)
-          logger.info(`Manager dispatching trip for tenant ${institution}`);
+      // SECURITY: Strict ownership check — broker can only dispatch their own trip
+      if (req.user.role === ROLES.BROKER) {
+        const myBrokerProfile = await db.collection('brokers').findOne({ user_id: req.user._id, institution });
+        if (!myBrokerProfile || !trip.broker_id || !trip.broker_id.equals(myBrokerProfile._id)) {
+          throw new AppError(ERROR_CODES.AUTH_FORBIDDEN, 'Access denied. You are not assigned to this trip.', 403);
         }
       }
 
@@ -394,6 +393,14 @@ class TripController {
         throw new AppError(ERROR_CODES.RESOURCE_NOT_FOUND, 'Trip not found.', 404);
       }
 
+      // SECURITY: Strict ownership check — broker can only track their assigned trip
+      if (req.user.role === ROLES.BROKER) {
+        const myBrokerProfile = await db.collection('brokers').findOne({ user_id: req.user._id, institution });
+        if (!myBrokerProfile || !trip.broker_id || !trip.broker_id.equals(myBrokerProfile._id)) {
+          throw new AppError(ERROR_CODES.AUTH_FORBIDDEN, 'Access denied. You are not assigned to this trip.', 403);
+        }
+      }
+
       if (trip.status !== TRIP_STATUS.DISPATCHED && trip.status !== TRIP_STATUS.IN_TRANSIT) {
         return res.success({
           message: 'Tracking only available for active trips in transit.',
@@ -494,6 +501,14 @@ class TripController {
       const trip = await db.collection('trips').findOne({ _id: new ObjectId(id), institution });
       if (!trip) {
         throw new AppError(ERROR_CODES.RESOURCE_NOT_FOUND, 'Trip not found.', 404);
+      }
+
+      // SECURITY: Verify the authenticated broker is the one assigned to this trip
+      if (req.user.role === ROLES.BROKER) {
+        const myBrokerProfile = await db.collection('brokers').findOne({ user_id: req.user._id, institution });
+        if (!myBrokerProfile || !trip.broker_id || !trip.broker_id.equals(myBrokerProfile._id)) {
+          throw new AppError(ERROR_CODES.AUTH_FORBIDDEN, 'Access denied. You are not the assigned broker for this trip.', 403);
+        }
       }
 
       // Verify Assigned Broker Role or Manager
