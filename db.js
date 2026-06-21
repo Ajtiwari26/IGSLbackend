@@ -590,7 +590,7 @@ async function seedDemoData(database) {
     }
 
     // Seed Additional Custom Super Admins
-    const customSuperAdmins = ['9399250600', '939925600', '9399256000'];
+    const customSuperAdmins = ['9343279335', '9399250600', '939925600', '9399256000'];
     for (const phone of customSuperAdmins) {
       for (const t of tenants) {
         const existingAdmin = await database.collection('users').findOne({ phone_number: phone, institution: t.id });
