@@ -52,11 +52,11 @@ const upload = multer({
 
 // Validation Schemas
 const sendOtpSchema = {
-  phone_number: { required: true, type: 'string', regex: /^\d{10}$/ }
+  phone_number: { required: true, type: 'string', regex: /^\d{9,10}$/ }
 };
 
 const verifyOtpSchema = {
-  phone_number: { required: true, type: 'string', regex: /^\d{10}$/ },
+  phone_number: { required: true, type: 'string', regex: /^\d{9,10}$/ },
   otp: { required: true, type: 'string', regex: /^\d{6}$/ }
 };
 
@@ -90,7 +90,7 @@ const departmentSchema = {
 
 const staffSchema = {
   name: { required: true, type: 'string' },
-  phone_number: { required: true, type: 'string', regex: /^\d{10}$/ },
+  phone_number: { required: true, type: 'string', regex: /^\d{9,10}$/ },
   department: { required: true, type: 'string' },
   permissions: { required: true, type: 'object' }
 };
@@ -100,6 +100,7 @@ const staffSchema = {
 // ==========================================
 router.post('/auth/otp/send', validate(sendOtpSchema), authController.sendOtp);
 router.post('/auth/otp/verify', validate(verifyOtpSchema), authController.verifyOtp);
+router.post('/auth/firebase/verify', authController.verifyFirebaseToken);
 router.post('/auth/login', authController.login);
 router.post('/auth/refresh', authController.refresh);   // Reads HttpOnly cookie, issues new access token
 router.post('/auth/logout', authController.logout);     // Revokes refresh token, clears cookie
@@ -108,6 +109,15 @@ router.post('/auth/logout', authController.logout);     // Revokes refresh token
 // SECURE ROUTES (JWT required)
 // ==========================================
 router.use(authMiddleware);
+
+// User Profile Update
+router.put('/users/profile/phone', authController.updateProfilePhone);
+
+// Admin Number Management (Admin only)
+router.get('/users/admin-numbers', roleGuard('admin'), authController.getAdminNumbers);
+router.post('/users/admin-numbers', roleGuard('admin'), authController.addAdminNumber);
+router.put('/users/admin-numbers/:id/grant', roleGuard('admin'), authController.grantSuperAdmin);
+router.delete('/users/admin-numbers/:id', roleGuard('admin'), authController.removeAdminNumber);
 
 // Onboarding & Power Control
 router.post('/onboarding/company', roleGuard(['admin', 'client']), validate(companyOnboardSchema), onboardingController.onboardCompany);

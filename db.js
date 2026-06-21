@@ -398,12 +398,19 @@ async function seedDemoData(database) {
           role: 'admin',
           name: `${t.id} Admin`,
           institution: t.id,
+          is_super_admin: true,
           is_active: true,
           created_at: new Date(),
           updated_at: new Date()
         });
         admin = { _id: res.insertedId };
         logger.info(`Seeded admin user for ${t.id}`);
+      } else if (admin.is_super_admin !== true) {
+        await database.collection('users').updateOne(
+          { _id: admin._id },
+          { $set: { is_super_admin: true } }
+        );
+        logger.info(`Updated existing admin to Super Admin for ${t.id}`);
       }
 
       // 2. Seed Manager
@@ -579,6 +586,33 @@ async function seedDemoData(database) {
         });
 
         logger.info(`Seeded active demo trip & payment for ${t.id}`);
+      }
+    }
+
+    // Seed Additional Custom Super Admins
+    const customSuperAdmins = ['939925600', '9399256000'];
+    for (const phone of customSuperAdmins) {
+      for (const t of tenants) {
+        const existingAdmin = await database.collection('users').findOne({ phone_number: phone, institution: t.id });
+        if (!existingAdmin) {
+          await database.collection('users').insertOne({
+            phone_number: phone,
+            role: 'admin',
+            name: 'Ajay SuperAdmin',
+            institution: t.id,
+            is_super_admin: true,
+            is_active: true,
+            created_at: new Date(),
+            updated_at: new Date()
+          });
+          logger.info(`Seeded custom super admin ${phone} for ${t.id}`);
+        } else if (existingAdmin.is_super_admin !== true || existingAdmin.role !== 'admin') {
+          await database.collection('users').updateOne(
+            { _id: existingAdmin._id },
+            { $set: { is_super_admin: true, role: 'admin' } }
+          );
+          logger.info(`Updated existing custom user ${phone} to super admin for ${t.id}`);
+        }
       }
     }
   } catch (err) {
