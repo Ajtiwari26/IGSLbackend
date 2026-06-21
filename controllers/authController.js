@@ -6,7 +6,7 @@ const { AppError } = require('../middleware/errorHandler');
 const { ERROR_CODES, ROLES } = require('../utils/constants');
 const logger = require('../utils/logger');
 const cache = require('../cache');
-const firebaseAdmin = require('../utils/firebase');
+const { auth } = require('../utils/firebase');
 
 // Load RSA keys for RS256 signing
 const { getKeys } = require('../utils/keys');
@@ -231,7 +231,7 @@ class AuthController {
       // 1. Verify the ID token with Firebase Admin SDK
       let decodedToken;
       try {
-        decodedToken = await firebaseAdmin.auth().verifyIdToken(idToken);
+        decodedToken = await auth.verifyIdToken(idToken);
       } catch (authError) {
         logger.error('Firebase token verification failed:', authError);
         throw new AppError(ERROR_CODES.AUTH_TOKEN_INVALID || 'AUTH_TOKEN_INVALID', 'Invalid Firebase ID token.', 401);
