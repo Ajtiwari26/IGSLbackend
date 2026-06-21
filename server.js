@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
+const mongoSanitize = require('express-mongo-sanitize');
 require('dotenv').config(); // Load environment variables
 
 
@@ -41,6 +42,7 @@ app.use(cookieParser());
 // 4. Parsers & Core Middlewares
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
+app.use(mongoSanitize());
 
 // 3. Request Trace & Logging Pipeline
 app.use(requestIdMiddleware);

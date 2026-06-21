@@ -552,6 +552,8 @@ class AuthController {
         .project({ phone_number: 1, name: 1, is_super_admin: 1, is_active: 1, created_at: 1 })
         .toArray();
 
+      console.log('getAdminNumbers called. institution:', institution, 'admins returned:', admins);
+
       // Ensure every returned admin has is_super_admin explicitly set (fallback to true for the default seeded ones if undefined)
       const mappedAdmins = admins.map(admin => ({
         id: admin._id.toString(),

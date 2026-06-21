@@ -22,3 +22,6 @@ lerna-debug.log*
 
 # Multer uploads directory
 uploads/
+
+# JWT RSA Key pairs
+keys/*.pem
