@@ -198,7 +198,7 @@ class AuthController {
       setRefreshCookie(res, refreshToken, expiresAt);
  
       // Store user details in cache for auth speedups
-      cache.set(`user:${user._id.toString()}`, user, 300);
+      await cache.set(`user:${user._id.toString()}`, user, 300);
  
       return res.success({
         token: accessToken,
@@ -310,7 +310,7 @@ class AuthController {
       setRefreshCookie(res, refreshToken, expiresAt);
 
       // Store user details in cache for auth speedups
-      cache.set(`user:${user._id.toString()}`, user, 300);
+      await cache.set(`user:${user._id.toString()}`, user, 300);
 
       return res.success({
         token: accessToken,
@@ -535,7 +535,7 @@ class AuthController {
       }
 
       // Invalidate cache
-      cache.delete(`user:${req.user._id.toString()}`);
+      await cache.delete(`user:${req.user._id.toString()}`);
 
       logger.info(`User ${req.user._id.toString()} updated phone number to ${phone_number}`);
 
@@ -668,7 +668,7 @@ class AuthController {
       }
 
       // Invalidate cache
-      cache.delete(`user:${id}`);
+      await cache.delete(`user:${id}`);
 
       logger.info(`Super Admin ${req.user._id.toString()} updated Super Admin status of ${id} to ${is_super_admin}`);
 
@@ -717,7 +717,7 @@ class AuthController {
       }
 
       // Invalidate cache
-      cache.delete(`user:${id}`);
+      await cache.delete(`user:${id}`);
 
       logger.info(`Super Admin ${req.user._id.toString()} revoked Admin privileges for ${id}`);
 

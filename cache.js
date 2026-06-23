@@ -1,69 +1,96 @@
-/**
- * In-Process Light Weight Memory Cache with TTL and Max Size (LRU behavior)
- */
+const { getCache, setCache, delCache, clearCachePattern } = require('./utils/redis');
+const logger = require('./utils/logger');
 
-class SimpleCache {
-  constructor(maxSize = 1000) {
+/**
+ * Hybrid L1 (In-Memory) & L2 (Redis) Cache with TTL
+ */
+class HybridCache {
+  constructor(maxSize = 2000) {
     this.maxSize = maxSize;
-    this.cache = new Map();
+    this.localCache = new Map();
   }
 
-  set(key, value, ttlSeconds = 300) {
-    // If cache exceeds max size, delete the oldest item (first key in insertion order)
-    if (this.cache.size >= this.maxSize) {
-      const oldestKey = this.cache.keys().next().value;
+  async set(key, value, ttlSeconds = 300) {
+    try {
+      // 1. Store in Upstash Redis (L2)
+      await setCache(key, value, ttlSeconds);
+    } catch (err) {
+      logger.error(`[Cache] Redis L2 set failed for key: ${key}`, { error: err.message });
+    }
+
+    // 2. Store in local Memory Map (L1)
+    if (this.localCache.size >= this.maxSize) {
+      const oldestKey = this.localCache.keys().next().value;
       if (oldestKey !== undefined) {
-        this.cache.delete(oldestKey);
+        this.localCache.delete(oldestKey);
       }
     }
 
-    // Delete existing to re-insert at end of insertion list (LRU update)
-    if (this.cache.has(key)) {
-      this.cache.delete(key);
+    if (this.localCache.has(key)) {
+      this.localCache.delete(key);
     }
 
     const expiresAt = Date.now() + (ttlSeconds * 1000);
-    this.cache.set(key, { value, expiresAt });
+    this.localCache.set(key, { value, expiresAt });
     return value;
   }
 
-  get(key) {
-    const entry = this.cache.get(key);
-    if (!entry) return null;
-
-    if (Date.now() > entry.expiresAt) {
-      this.cache.delete(key);
-      return null;
+  async get(key) {
+    // 1. Try Memory Map (L1) first for lightning fast access
+    const entry = this.localCache.get(key);
+    if (entry && Date.now() <= entry.expiresAt) {
+      logger.info(`[Cache] Memory L1 hit for key: ${key}`);
+      return entry.value;
     }
 
-    // Refresh insertion order (LRU update)
-    const val = entry.value;
-    const expiresAt = entry.expiresAt;
-    this.cache.delete(key);
-    this.cache.set(key, { value: val, expiresAt });
+    // 2. Fallback to Upstash Redis (L2)
+    try {
+      const redisVal = await getCache(key);
+      if (redisVal !== null) {
+        // Sync back to L1
+        const expiresAt = Date.now() + (300 * 1000); // default 5m local TTL
+        this.localCache.set(key, { value: redisVal, expiresAt });
+        return redisVal;
+      }
+    } catch (err) {
+      logger.error(`[Cache] Redis L2 get failed for key: ${key}`, { error: err.message });
+    }
 
-    return val;
+    return null;
   }
 
-  delete(key) {
-    return this.cache.delete(key);
+  async delete(key) {
+    try {
+      // 1. Invalidate Redis (L2)
+      await delCache(key);
+    } catch (err) {
+      logger.error(`[Cache] Redis L2 delete failed for key: ${key}`, { error: err.message });
+    }
+
+    // 2. Invalidate Memory (L1)
+    return this.localCache.delete(key);
   }
 
-  clear() {
-    this.cache.clear();
+  async clear() {
+    this.localCache.clear();
   }
 
-  // Helper to invalidate by key prefix (e.g., "trip:")
-  invalidatePrefix(prefix) {
-    for (const key of this.cache.keys()) {
+  async invalidatePrefix(prefix) {
+    try {
+      // 1. Invalidate Redis (L2) matching keys
+      await clearCachePattern(`${prefix}*`);
+    } catch (err) {
+      logger.error(`[Cache] Redis L2 pattern clear failed for prefix: ${prefix}`, { error: err.message });
+    }
+
+    // 2. Invalidate Memory (L1) matching keys
+    for (const key of this.localCache.keys()) {
       if (key.startsWith(prefix)) {
-        this.cache.delete(key);
+        this.localCache.delete(key);
       }
     }
   }
 }
 
-// Global cache instance
-const cache = new SimpleCache(2000);
-
+const cache = new HybridCache(2000);
 module.exports = cache;

@@ -68,7 +68,7 @@ async function authMiddleware(req, res, next) {
     const cacheKey = `user:${userId}`;
     
     // 1. Try Cache First
-    let user = cache.get(cacheKey);
+    let user = await cache.get(cacheKey);
     
     // 2. Database Fallback if Cache Miss
     if (!user) {
@@ -78,7 +78,7 @@ async function authMiddleware(req, res, next) {
         
         if (user) {
           // Cache the user document for 5 minutes (300 seconds)
-          cache.set(cacheKey, user, 300);
+          await cache.set(cacheKey, user, 300);
         }
       } catch (dbErr) {
         // Fallback for mock/test runs without a live MongoDB connection

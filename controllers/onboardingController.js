@@ -153,8 +153,8 @@ class OnboardingController {
       const finalProfile = await db.collection('brokers').findOne({ user_id: req.user._id, institution });
       
       // Invalidate cache
-      cache.delete(`broker:${req.user._id.toString()}:${institution}`);
-      cache.set(`broker:${req.user._id.toString()}:${institution}`, finalProfile, 600); // cache for 10 mins
+      await cache.delete(`broker:${req.user._id.toString()}:${institution}`);
+      await cache.set(`broker:${req.user._id.toString()}:${institution}`, finalProfile, 600); // cache for 10 mins
 
       return res.success({
         message: 'Broker profile onboarded and KYC verified successfully.',
@@ -219,7 +219,7 @@ class OnboardingController {
       }
 
       // Invalidate company cache
-      cache.delete(`company:${id}:${institution}`);
+      await cache.delete(`company:${id}:${institution}`);
 
       logger.info(`Company ${id} permissions updated by Admin under ${institution}`);
 
@@ -279,7 +279,13 @@ class OnboardingController {
     try {
       const db = getDb();
       const institution = req.user.institution || 'IGSL';
-      const departments = await db.collection('departments').find({ institution }).toArray();
+      const cacheKey = `depts:${institution}`;
+      
+      let departments = await cache.get(cacheKey);
+      if (!departments) {
+        departments = await db.collection('departments').find({ institution }).toArray();
+        await cache.set(cacheKey, departments, 3600); // Cache for 1 hour
+      }
       return res.success(departments);
     } catch (error) {
       next(error);
@@ -315,6 +321,9 @@ class OnboardingController {
       const result = await db.collection('departments').insertOne(newDept);
       newDept._id = result.insertedId;
 
+      // Invalidate department cache
+      await cache.delete(`depts:${institution}`);
+
       return res.success({
         message: 'Department created successfully.',
         department: newDept
@@ -333,7 +342,13 @@ class OnboardingController {
     try {
       const db = getDb();
       const institution = req.user.institution || 'IGSL';
-      const staff = await db.collection('users').find({ role: 'client', institution }).toArray();
+      const cacheKey = `staff:${institution}`;
+      
+      let staff = await cache.get(cacheKey);
+      if (!staff) {
+        staff = await db.collection('users').find({ role: 'client', institution }).toArray();
+        await cache.set(cacheKey, staff, 3600); // Cache for 1 hour
+      }
       return res.success(staff);
     } catch (error) {
       next(error);
@@ -381,6 +396,9 @@ class OnboardingController {
       const result = await db.collection('users').insertOne(newStaff);
       newStaff._id = result.insertedId;
 
+      // Invalidate staff cache
+      await cache.delete(`staff:${institution}`);
+
       return res.success({
         message: 'Staff account created successfully.',
         staff: newStaff
@@ -398,7 +416,7 @@ class OnboardingController {
   async updateStaff(req, res, next) {
     try {
       const { id } = req.params;
-      const { name, phone_number, department, permissions } = req.body;
+      const { name, phone_number, department, permissions, is_active } = req.body;
       if (!name || !phone_number || !department || !permissions) {
         throw new AppError(ERROR_CODES.VALIDATION_ERROR, 'Name, phone_number, department, and permissions are required.', 400);
       }
@@ -431,6 +449,10 @@ class OnboardingController {
         updated_at: new Date()
       };
 
+      if (is_active !== undefined) {
+        updateData.is_active = !!is_active;
+      }
+
       const result = await db.collection('users').updateOne(
         { _id: new ObjectId(id), role: 'client', institution },
         { $set: updateData }
@@ -439,6 +461,9 @@ class OnboardingController {
       if (result.matchedCount === 0) {
         throw new AppError(ERROR_CODES.RESOURCE_NOT_FOUND, 'Staff user not found.', 404);
       }
+
+      // Invalidate staff cache
+      await cache.delete(`staff:${institution}`);
 
       return res.success({
         message: 'Staff account updated successfully.'
@@ -470,8 +495,125 @@ class OnboardingController {
         throw new AppError(ERROR_CODES.RESOURCE_NOT_FOUND, 'Staff user not found.', 404);
       }
 
+      // Invalidate staff cache
+      await cache.delete(`staff:${institution}`);
+
       return res.success({
         message: 'Staff account deleted successfully.'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Update a Department (Modify permissions / name)
+   * Route: PUT /api/departments/:id
+   * Access: Admin only
+   */
+  async updateDepartment(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { name, permissions } = req.body;
+      const { ObjectId } = require('mongodb');
+      const db = getDb();
+      const institution = req.user.institution || 'IGSL';
+
+      const dept = await db.collection('departments').findOne({
+        _id: new ObjectId(id),
+        institution
+      });
+
+      if (!dept) {
+        throw new AppError(ERROR_CODES.RESOURCE_NOT_FOUND, 'Department not found.', 404);
+      }
+
+      const updateData = { updated_at: new Date() };
+      if (name !== undefined) {
+        updateData.name = name.trim();
+      }
+      if (permissions !== undefined) {
+        updateData.permissions = {
+          can_create_jobs: !!permissions.can_create_jobs,
+          can_verify_compliance: !!permissions.can_verify_compliance,
+          can_approve_payments: !!permissions.can_approve_payments,
+          can_generate_lr: !!permissions.can_generate_lr,
+          can_track_vehicles: !!permissions.can_track_vehicles
+        };
+      }
+
+      await db.collection('departments').updateOne(
+        { _id: new ObjectId(id), institution },
+        { $set: updateData }
+      );
+
+      // Propagate name change to users in this department
+      if (name !== undefined && name.trim() !== dept.name) {
+        await db.collection('users').updateMany(
+          { department: dept.name, institution },
+          { $set: { department: name.trim() } }
+        );
+      }
+
+      // Propagate permissions change to users in this department
+      if (permissions !== undefined) {
+        await db.collection('users').updateMany(
+          { department: name !== undefined ? name.trim() : dept.name, institution, role: 'client' },
+          { $set: { permissions: updateData.permissions } }
+        );
+      }
+
+      // Invalidate department and staff cache
+      await cache.delete(`depts:${institution}`);
+      await cache.delete(`staff:${institution}`);
+
+      return res.success({
+        message: 'Department updated successfully.',
+        department: { ...dept, ...updateData }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Delete a Department
+   * Route: DELETE /api/departments/:id
+   * Access: Admin only
+   */
+  async deleteDepartment(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { ObjectId } = require('mongodb');
+      const db = getDb();
+      const institution = req.user.institution || 'IGSL';
+
+      const dept = await db.collection('departments').findOne({
+        _id: new ObjectId(id),
+        institution
+      });
+
+      if (!dept) {
+        throw new AppError(ERROR_CODES.RESOURCE_NOT_FOUND, 'Department not found.', 404);
+      }
+
+      await db.collection('departments').deleteOne({
+        _id: new ObjectId(id),
+        institution
+      });
+
+      // Update any staff in this department to 'Unassigned'
+      await db.collection('users').updateMany(
+        { department: dept.name, institution },
+        { $set: { department: 'Unassigned' } }
+      );
+
+      // Invalidate department and staff cache
+      await cache.delete(`depts:${institution}`);
+      await cache.delete(`staff:${institution}`);
+
+      return res.success({
+        message: 'Department deleted successfully.'
       });
     } catch (error) {
       next(error);

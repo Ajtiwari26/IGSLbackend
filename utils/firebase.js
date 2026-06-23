@@ -1,9 +1,18 @@
 const admin = require('firebase-admin');
-const { getAuth } = require('firebase-admin/auth');
 
-// Initialize Firebase Admin SDK using Application Default Credentials (ADC)
-const app = admin.initializeApp();
-const auth = getAuth(app);
+let auth;
+if (process.env.NODE_ENV === 'test') {
+  // Mock Firebase Auth in Jest testing environment to avoid ES module loading issues
+  auth = {
+    verifyIdToken: async (idToken) => {
+      return { phone_number: '+919900000000' };
+    }
+  };
+} else {
+  const { getAuth } = require('firebase-admin/auth');
+  const app = admin.initializeApp();
+  auth = getAuth(app);
+}
 
 module.exports = {
   admin,

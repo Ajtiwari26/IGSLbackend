@@ -47,7 +47,7 @@ class PaymentController {
 
       logger.info(`Advance payment order ${rpOrder.id} created for trip ${payment.trip_ref} under ${institution}`);
 
-      cache.delete(`dashboard:settlement:${institution}`);
+      await cache.delete(`dashboard:settlement:${institution}`);
 
       return res.success({
         message: 'Razorpay order created successfully for advance payment checkout.',
@@ -111,9 +111,9 @@ class PaymentController {
 
       logger.info(`Advance payment verified for trip ${payment.trip_ref}, Payment ID: ${payment_id}`);
 
-      cache.delete(`trip:${trip_id}:${institution}`);
-      cache.delete(`trip:active:count:${institution}`);
-      cache.delete(`dashboard:settlement:${institution}`);
+      await cache.delete(`trip:${trip_id}:${institution}`);
+      await cache.delete(`trip:active:count:${institution}`);
+      await cache.delete(`dashboard:settlement:${institution}`);
 
       return res.success({
         message: 'Advance payment verified and marked as paid successfully.',
@@ -186,9 +186,9 @@ class PaymentController {
 
       logger.info(`Admin approved direct 80% Advance payout for trip ${payment.trip_ref}, Payout ID: ${payoutResult.payout_id}`);
 
-      cache.delete(`trip:${trip_id}:${institution}`);
-      cache.delete(`trip:active:count:${institution}`);
-      cache.delete(`dashboard:settlement:${institution}`);
+      await cache.delete(`trip:${trip_id}:${institution}`);
+      await cache.delete(`trip:active:count:${institution}`);
+      await cache.delete(`dashboard:settlement:${institution}`);
 
       return res.success({
         message: 'Advance 80% payment approved and released successfully.',
@@ -253,9 +253,9 @@ class PaymentController {
 
       logger.info(`Manager filed POD settlement request for trip ${trip.trip_id} under ${institution}. Net Payable: INR ${finalPayable}`);
 
-      cache.delete(`trip:${trip_id}:${institution}`);
-      cache.delete(`trip:active:count:${institution}`);
-      cache.delete(`dashboard:settlement:${institution}`);
+      await cache.delete(`trip:${trip_id}:${institution}`);
+      await cache.delete(`trip:active:count:${institution}`);
+      await cache.delete(`dashboard:settlement:${institution}`);
 
       return res.success({
         message: 'POD settlement details filed and sent to Admin for final approval.',
@@ -397,9 +397,9 @@ class PaymentController {
       logger.info(`Trip ${trip.trip_id} fully settled under ${institution}. Transferred final payout: INR ${finalPayable}`);
 
       // Invalidate caches
-      cache.delete(`trip:${trip_id}:${institution}`);
-      cache.delete(`trip:active:count:${institution}`);
-      cache.delete(`dashboard:settlement:${institution}`);
+      await cache.delete(`trip:${trip_id}:${institution}`);
+      await cache.delete(`trip:active:count:${institution}`);
+      await cache.delete(`dashboard:settlement:${institution}`);
 
       return res.success({
         message: 'Trip settled successfully. Payout dispatched to broker account.',

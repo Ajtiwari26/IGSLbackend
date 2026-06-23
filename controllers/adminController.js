@@ -17,7 +17,7 @@ class AdminController {
     try {
       const institution = req.user.institution || 'IGSL';
       const cacheKey = `trip:active:count:${institution}`;
-      let metrics = cache.get(cacheKey);
+      let metrics = await cache.get(cacheKey);
 
       if (!metrics) {
         logger.info(`Admin: Computing dashboard metrics for ${institution} (cache miss)...`);
@@ -68,7 +68,7 @@ class AdminController {
         };
 
         // Cache result for 60 seconds
-        cache.set(cacheKey, metrics, 60);
+        await cache.set(cacheKey, metrics, 60);
       }
 
       return res.success(metrics);
@@ -86,7 +86,7 @@ class AdminController {
     try {
       const institution = req.user.institution || 'IGSL';
       const cacheKey = `dashboard:settlement:${institution}`;
-      let financials = cache.get(cacheKey);
+      let financials = await cache.get(cacheKey);
 
       if (!financials) {
         logger.info(`Admin: Computing financial settlement metrics for ${institution} (cache miss)...`);
@@ -138,7 +138,7 @@ class AdminController {
         };
 
         // Cache result for 2 minutes (120 seconds)
-        cache.set(cacheKey, financials, 120);
+        await cache.set(cacheKey, financials, 120);
       }
 
       return res.success(financials);

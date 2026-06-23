@@ -30,14 +30,14 @@ class TripController {
       
       // 1. Fetch company configuration (cache-first)
       const companyCacheKey = `company:${company_id}:${institution}`;
-      let company = cache.get(companyCacheKey);
+      let company = await cache.get(companyCacheKey);
       
       if (!company) {
         company = await db.collection('companies').findOne({ _id: new ObjectId(company_id), institution });
         if (!company) {
           throw new AppError(ERROR_CODES.RESOURCE_NOT_FOUND, 'Company client not found for this institution.', 404);
         }
-        cache.set(companyCacheKey, company, 900); // 15 mins cache
+        await cache.set(companyCacheKey, company, 900); // 15 mins cache
       }
 
       // 2. Calculate trip cost
@@ -107,8 +107,8 @@ class TripController {
       logger.info(`Trip created: ${trip.trip_id} for ${company.name} under ${institution}, Cost: INR ${estimatedCost}`);
 
       // Invalidate active trip counts cache
-      cache.delete(`trip:active:count:${institution}`);
-      cache.delete(`dashboard:settlement:${institution}`);
+      await cache.delete(`trip:active:count:${institution}`);
+      await cache.delete(`dashboard:settlement:${institution}`);
 
       return res.success({
         message: 'Trip created successfully.',
@@ -186,9 +186,9 @@ class TripController {
       logger.info(`Trip ${trip.trip_id} assigned to Broker ${broker.name} (${broker.rc_details.vehicle_number})`);
 
       // Invalidate caches
-      cache.delete(`trip:${id}:${institution}`);
-      cache.delete(`trip:active:count:${institution}`);
-      cache.delete(`dashboard:settlement:${institution}`);
+      await cache.delete(`trip:${id}:${institution}`);
+      await cache.delete(`trip:active:count:${institution}`);
+      await cache.delete(`dashboard:settlement:${institution}`);
 
       return res.success({
         message: 'Broker assigned to trip successfully.',
@@ -236,7 +236,7 @@ class TripController {
 
       logger.info(`mParivahan compliance verification completed for trip ${trip.trip_id}`);
 
-      cache.delete(`trip:${id}:${institution}`);
+      await cache.delete(`trip:${id}:${institution}`);
 
       return res.success({
         message: 'Compliance verification completed successfully. Vehicle and Driver license verified.',
@@ -363,9 +363,9 @@ class TripController {
 
       logger.info(`Trip ${trip.trip_id} dispatched. Lorry Receipt issued: ${lrNumber}`);
 
-      cache.delete(`trip:${id}:${institution}`);
-      cache.delete(`trip:active:count:${institution}`);
-      cache.delete(`dashboard:settlement:${institution}`);
+      await cache.delete(`trip:${id}:${institution}`);
+      await cache.delete(`trip:active:count:${institution}`);
+      await cache.delete(`dashboard:settlement:${institution}`);
 
       return res.success({
         message: 'Trip dispatched. Lorry Receipt (LR) generated and advance payment configured.',
@@ -465,9 +465,9 @@ class TripController {
 
       await db.collection('trips').updateOne({ _id: trip._id }, { $set: updateData });
 
-      cache.delete(`trip:${id}:${institution}`);
-      cache.delete(`trip:active:count:${institution}`);
-      cache.delete(`dashboard:settlement:${institution}`);
+      await cache.delete(`trip:${id}:${institution}`);
+      await cache.delete(`trip:active:count:${institution}`);
+      await cache.delete(`dashboard:settlement:${institution}`);
 
       return res.success({
         message: arrived ? 'Destination arrived! Status updated to delivered.' : 'Location tracked successfully.',
@@ -553,9 +553,9 @@ class TripController {
       // Mock Multilingual SMS
       const sms_preview = `वाहक ${broker.name}: आपकी गाड़ी ${broker.rc_details.vehicle_number} का POD अपलोड हो गया है। अंतिम भुगतान प्रक्रिया में है।`;
 
-      cache.delete(`trip:${id}:${institution}`);
-      cache.delete(`trip:active:count:${institution}`);
-      cache.delete(`dashboard:settlement:${institution}`);
+      await cache.delete(`trip:${id}:${institution}`);
+      await cache.delete(`trip:active:count:${institution}`);
+      await cache.delete(`dashboard:settlement:${institution}`);
 
       return res.success({
         message: 'Proof of Delivery uploaded successfully. Pending Admin verification.',
@@ -602,9 +602,9 @@ class TripController {
 
       logger.info(`POD approved for trip ${trip.trip_id} by Admin ${req.user.name}`);
 
-      cache.delete(`trip:${id}:${institution}`);
-      cache.delete(`trip:active:count:${institution}`);
-      cache.delete(`dashboard:settlement:${institution}`);
+      await cache.delete(`trip:${id}:${institution}`);
+      await cache.delete(`trip:active:count:${institution}`);
+      await cache.delete(`dashboard:settlement:${institution}`);
 
       return res.success({
         message: 'Proof of Delivery verified and approved successfully.',
@@ -630,7 +630,7 @@ class TripController {
       const cacheKey = `trip:${id}:${institution}`;
 
       // Try Cache First
-      let trip = cache.get(cacheKey);
+      let trip = await cache.get(cacheKey);
 
       if (!trip) {
         const db = getDb();
@@ -639,7 +639,7 @@ class TripController {
         if (!trip) {
           throw new AppError(ERROR_CODES.RESOURCE_NOT_FOUND, 'Trip not found.', 404);
         }
-        cache.set(cacheKey, trip, 600); // 10 minutes cache
+        await cache.set(cacheKey, trip, 600); // 10 minutes cache
       }
 
       // Security check (Clients can only see their own company trips)

@@ -376,20 +376,6 @@ async function seedDemoData(database) {
     ];
 
     for (const t of tenants) {
-      // 0. Seed Default Departments
-      const defaultDepts = ['Finance', 'Operations', 'Compliance', 'Tracking', 'Loading'];
-      for (const dept of defaultDepts) {
-        const existingDept = await database.collection('departments').findOne({ name: dept, institution: t.id });
-        if (!existingDept) {
-          await database.collection('departments').insertOne({
-            name: dept,
-            institution: t.id,
-            created_at: new Date()
-          });
-        }
-      }
-      logger.info(`Seeded default departments for ${t.id}`);
-
       // 1. Seed Admin
       let admin = await database.collection('users').findOne({ phone_number: t.adminPhone, institution: t.id });
       if (!admin) {

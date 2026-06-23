@@ -88,11 +88,17 @@ const departmentSchema = {
   name: { required: true, type: 'string' }
 };
 
+const updateDepartmentSchema = {
+  name: { required: false, type: 'string' },
+  permissions: { required: false, type: 'object' }
+};
+
 const staffSchema = {
   name: { required: true, type: 'string' },
   phone_number: { required: true, type: 'string', regex: /^\d{9,10}$/ },
   department: { required: true, type: 'string' },
-  permissions: { required: true, type: 'object' }
+  permissions: { required: true, type: 'object' },
+  is_active: { required: false, type: 'boolean' }
 };
 
 // ==========================================
@@ -130,6 +136,8 @@ router.get('/companies/my', onboardingController.getMyCompany);
 // Department & Staff Management (Admin only)
 router.get('/departments', roleGuard('admin'), onboardingController.listDepartments);
 router.post('/departments', roleGuard('admin'), validate(departmentSchema), onboardingController.createDepartment);
+router.put('/departments/:id', roleGuard('admin'), validate(updateDepartmentSchema), onboardingController.updateDepartment);
+router.delete('/departments/:id', roleGuard('admin'), onboardingController.deleteDepartment);
 router.get('/staff', roleGuard('admin'), onboardingController.listStaff);
 router.post('/staff', roleGuard('admin'), validate(staffSchema), onboardingController.createStaff);
 router.put('/staff/:id', roleGuard('admin'), validate(staffSchema), onboardingController.updateStaff);

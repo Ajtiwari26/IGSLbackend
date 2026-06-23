@@ -25,3 +25,8 @@ uploads/
 
 # JWT RSA Key pairs
 keys/*.pem
+
+# Scratch files
+scratch/
+scratch_*
+

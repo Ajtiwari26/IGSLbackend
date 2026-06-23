@@ -12,6 +12,8 @@ const { connectDb } = require('./db');
 const requestIdMiddleware = require('./middleware/requestId');
 const { responseFormatter, errorHandler, AppError } = require('./middleware/errorHandler');
 const apiRoutes = require('./routes/api');
+const cacheControlMiddleware = require('./middleware/cacheControl');
+const { warmupCache } = require('./utils/warmup');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -47,6 +49,7 @@ app.use(mongoSanitize());
 // 3. Request Trace & Logging Pipeline
 app.use(requestIdMiddleware);
 app.use(responseFormatter);
+app.use(cacheControlMiddleware);
 
 // Request tracking log
 app.use((req, res, next) => {
@@ -145,6 +148,9 @@ async function startServer() {
   try {
     // Try to connect to database
     await connectDb();
+    
+    // Warm up the cache with database configurations & definitions
+    await warmupCache();
     
     const server = app.listen(PORT, () => {
       logger.info(`=============================================================`);
